@@ -9,7 +9,7 @@ char ssid[30], passwd[30], broker[30], dataSent[30];
 int pinCount, port, countTopic, i = 0, j, valves[40], valvesPin[40];
 bool establishedVALVES = false, establishedWIFI = false, establishedMQTT = false;
 enum Betriebmodus { halt, manuell, automatisch};
-String dataRecieved, topics[41];
+String dataRecieved, topics[41], sentTopic;
 long timeNow, timePrev;
 
 // Objekte
@@ -29,17 +29,19 @@ void setup()
   createPins();
   establishConnectionWiFi();
   establishConnectionMQTT();
+  subscribeAllTopics();
   modus = halt;
   Serial.println("Setup Completed!\n To see all commands type: help");
 }
 
 void loop() 
-{
+{ 
+  checkMQTT(); 
+  
   if (Serial.available())
-  {
-   serialCheckAndSetMode();
-   steuerung(); 
-  }
+    serialCheckAndSetMode();
+    
+  steuerung(); 
   timeClient.update();
   mqttClient.poll();
   delay(500);
@@ -95,10 +97,12 @@ void createPins()
         dataSent[i-1] = '\0'; //Serial in Arduino
         topics[j] = dataSent;
         i = 0;
+        
         Serial.println(topics[j]);
       }
-      topics[j] = "projektarbeit/main";
+      topics[j] = "sex/simple";
       Serial.println(topics[5]);
+      dataRecieved = "";
     }
   }  
 }
@@ -190,12 +194,41 @@ void establishConnectionMQTT()
   Serial.println("\nYou're connected to the MQTT broker!");
 }
 
+void subscribeAllTopics()
+{
+  for (j = 1; j <= pinCount; j++)
+     mqttClient.subscribe(topics[j]);
+}
+
 void checkMQTT()
 {
-  if (mqttClient.available())
+  if (mqttClient.parseMessage())
   {
-    while (mqttClient.available())
-      dataRecieved[i++] = mqttClient.read();
+    sentTopic = mqttClient.messageTopic();
+    Serial.println(sentTopic);
+    
+    if (mqttClient.available())
+    {
+      while (mqttClient.available())
+        dataSent[i++] = (char)mqttClient.read();
+
+      dataSent[i] = '\0';
+      i = 0;
+      dataRecieved = dataSent;
+      Serial.println(dataRecieved);
+    } 
+
+    for (j = 1; j <= pinCount; j++)
+    {
+      if (sentTopic == topics[j])
+      {
+        if (dataRecieved == "open")
+          digitalWrite(valves[j], HIGH);
+        else if (dataRecieved == "close")
+          digitalWrite(valves[j], LOW);
+      }
+    }
+    dataRecieved = "";
   }
 }
 
@@ -241,29 +274,7 @@ void serialCheckAndSetMode()
     Serial.println("showip - Shows current local IP");
     Serial.println("time - Shows current Time in 24H unit"); 
   }
-    
-  // Befehle für Debug Steuerung
-  if (modus == manuell)
-  {
-    /*
-    if (dataRecieved == "1 open")
-      //stateV1 = offen;
-    else if (dataRecieved == "1 close")
-      //stateV1 = geschlossen;
-    else if (dataRecieved == "2 open")
-      //stateV2 = offen;
-    else if (dataRecieved == "2 close")
-      //stateV2 = geschlossen;
-    else if (dataRecieved == "3 open")
-      stateV3 = offen;
-    else if (dataRecieved == "3 close")
-      stateV3 = geschlossen;
-    else if (dataRecieved == "4 open")
-      stateV4 = offen;
-    else if (dataRecieved == "4 close") 
-      stateV4 = geschlossen;
-      */
-  }
+  
   i = 0;
   dataRecieved = "";
 }
@@ -273,37 +284,7 @@ void steuerung()
   switch (modus)
   {
     case manuell: // Manuelle Steuerung
-      /*
-      if (stateV1 == offen) 
-      { 
-        digitalWrite(V1, HIGH); 
-        Serial.println("DEBUG (Zustand): 1 open");
-      }
-      else if (stateV1 == geschlossen) 
-      { 
-        digitalWrite(V1, LOW);
-        Serial.println("DEBUG (Zustand): 1 closed");  
-      }
-      if (stateV2 == offen) 
-      { 
-        digitalWrite(V2, HIGH);
-        Serial.println("DEBUG (Zustand): 2 open");
-      }
-      else if (stateV2 == geschlossen) 
-      { 
-        digitalWrite(V2, LOW);
-        Serial.println("DEBUG (Zustand): 2 closed");
-      }
-      if (stateV3 == offen) 
-        digitalWrite(V3, HIGH);
-      else if (stateV3 == geschlossen) 
-        digitalWrite(V3, LOW);
-        
-      if (stateV4 == offen) 
-        digitalWrite(V4, HIGH);
-      else if (stateV4 == geschlossen)
-        digitalWrite(V4, LOW);
-        */
+      
     break;
 
     case automatisch: // Automatische Steuerung
@@ -330,17 +311,13 @@ void steuerung()
 void openAllValves()
 {
   for (j = 1; j <= pinCount; j++)
-  {
     digitalWrite(valves[j], HIGH);
-  }
 }
 
 void closeAllValves()
 {
   for (j = 1; j <= pinCount; j++)
-  {
     digitalWrite(valves[j], LOW);
-  }
 }
 
 void printAllTopics()

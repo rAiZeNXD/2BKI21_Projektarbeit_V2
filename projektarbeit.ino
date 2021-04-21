@@ -35,8 +35,8 @@ void setup()
 }
 
 void loop() 
-{ 
-  checkMQTT(); 
+{
+    checkMQTT(); 
   
   if (Serial.available())
     serialCheckAndSetMode();
@@ -51,7 +51,7 @@ void loop()
 
 void createPins()
 {
-  Serial.println("How many Valves?:");
+  Serial.println("Please type in how many Pins would you like to use:");
 
   while (!establishedVALVES)
   {
@@ -70,7 +70,7 @@ void createPins()
 
       for (j = 1; j <= pinCount; j++)
       {
-        Serial.printf("Assign Pin (On Board) to current Pin (%2d)\n", j);
+        Serial.printf("Assign (On Board) Pin (%2d)\n", j);
         
         while (!Serial.available())
           delay(250);
@@ -100,8 +100,20 @@ void createPins()
         
         Serial.println(topics[j]);
       }
-      topics[j] = "sex/simple";
-      Serial.println(topics[5]);
+      Serial.println("Main Topic:")
+      
+      while (!Serial.available())
+        delay(100);
+
+      while (Serial.available())
+      {
+          dataSent[i++] = Serial.read();
+          delay(100);
+      }
+      dataSent[i-1] = '\0'; //Serial in Arduino  
+      topics[j] = dataSent;
+      i = 0;
+      
       dataRecieved = "";
     }
   }  
